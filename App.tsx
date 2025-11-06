@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { GameState, MoodResult } from './types';
 import StartScreen from './components/StartScreen';
@@ -14,28 +13,39 @@ const App: React.FC = () => {
   const [result, setResult] = useState<MoodResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   
+  // --- Music Controls State ---
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isMusicMuted, setIsMusicMuted] = useState(false);
-  const [volume, setVolume] = useState(0.5); // Start at 50% volume
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(0.5); // Default volume 50%
 
+  // --- Effect to initialize and sync audio element ---
   useEffect(() => {
-    const audioElement = document.getElementById('background-music') as HTMLAudioElement;
-    if (audioElement) {
-      audioRef.current = audioElement;
-      audioRef.current.volume = volume;
+    // Initialize audioRef
+    if (!audioRef.current) {
+      audioRef.current = document.getElementById('background-music') as HTMLAudioElement;
     }
-  }, [volume]);
+
+    if (audioRef.current) {
+      // Sync volume
+      audioRef.current.volume = volume;
+      
+      // Sync play/pause state
+      if (isPlaying) {
+        audioRef.current.play().catch(e => console.error("Musiqani ijro etishda xatolik:", e));
+      } else {
+        audioRef.current.pause();
+      }
+    }
+  }, [isPlaying, volume]);
 
   const handleStartGame = () => {
-    if (audioRef.current && !isMusicMuted) {
-       audioRef.current.play().catch(e => console.error("Musiqani ijro etishda xatolik:", e));
-    }
+    setIsPlaying(true); // Auto-play music on game start
     setGameState('playing');
   };
   
   const handleReset = () => {
+    setIsPlaying(false); // Stop music on reset
     if (audioRef.current) {
-        audioRef.current.pause();
         audioRef.current.currentTime = 0;
     }
     setGameState('start');
@@ -44,14 +54,6 @@ const App: React.FC = () => {
     setError(null);
   };
   
-  const toggleMute = () => {
-      const currentlyMuted = !isMusicMuted;
-      setIsMusicMuted(currentlyMuted);
-      if (audioRef.current) {
-          audioRef.current.muted = currentlyMuted;
-      }
-  };
-
   const handleGameComplete = useCallback((finalSelections: string[]) => {
     setSelections(finalSelections);
     setGameState('analyzing');
@@ -75,6 +77,15 @@ const App: React.FC = () => {
     }
   }, [gameState, selections]);
 
+  // --- Music Control Handlers ---
+  const togglePlayPause = () => {
+    setIsPlaying(prev => !prev);
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setVolume(parseFloat(e.target.value));
+  };
+
   const renderContent = () => {
     switch (gameState) {
       case 'start':
@@ -97,18 +108,29 @@ const App: React.FC = () => {
       <div className="w-full max-w-2xl mx-auto p-8 rounded-2xl glass-card">
         {renderContent()}
       </div>
-       <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2">
+      {/* --- Music Controls UI --- */}
+       <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 p-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm">
           <button
-            onClick={toggleMute}
-            className="p-3 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all duration-300"
-            aria-label={isMusicMuted ? "Ovozni yoqish" : "Ovozni o'chirish"}
+            onClick={togglePlayPause}
+            className="p-2 rounded-full text-white hover:bg-white/20 transition-all duration-300"
+            aria-label={isPlaying ? "Musiqani to'xtatish" : "Musiqani ijro etish"}
           >
-            {isMusicMuted ? (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l-4-4m0 4l4-4" /></svg>
+            {isPlaying ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/></svg>
             ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 16 16"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>
             )}
           </button>
+          <input 
+            type="range" 
+            min="0" 
+            max="1" 
+            step="0.01" 
+            value={volume} 
+            onChange={handleVolumeChange}
+            className="w-24"
+            aria-label="Ovoz balandligi"
+          />
        </div>
     </div>
   );
